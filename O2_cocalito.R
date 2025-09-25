@@ -164,4 +164,89 @@ resumen <- df_sites %>%
     .groups = "drop"
   )
 
-print(resumen)
+##
+library(ggrepel)
+library(cowplot)
+
+dual_panel_annotated <- function(dat, titulo){
+  # Rangos y transformación lineal para eje secundario
+  rDO  <- range(dat$DO_mgL, na.rm = TRUE)
+  rTMP <- range(dat$Temp_C, na.rm = TRUE)
+  a <- diff(rDO) / diff(rTMP)
+  b <- rDO[1] - a * rTMP[1]
+  
+  # Hallar extremos
+  i_do_min <- which.min(dat$DO_mgL); i_do_max <- which.max(dat$DO_mgL)
+  i_tp_min <- which.min(dat$Temp_C); i_tp_max <- which.max(dat$Temp_C)
+  
+  pts <- tibble::tibble(
+    var  = c("DO_min","DO_max","Temp_min","Temp_max"),
+    time = c(dat$datetime_local[i_do_min], dat$datetime_local[i_do_max],
+             dat$datetime_local[i_tp_min], dat$datetime_local[i_tp_max]),
+    y_do = c(dat$DO_mgL[i_do_min], dat$DO_mgL[i_do_max],
+             a*dat$Temp_C[i_tp_min]+b,    a*dat$Temp_C[i_tp_max]+b),
+    lab  = c(
+      paste0("DO min\n",  format(dat$datetime_local[i_do_min], "%H:%M")),
+      paste0("DO max\n",  format(dat$datetime_local[i_do_max], "%H:%M")),
+      paste0("T min\n",   format(dat$datetime_local[i_tp_min], "%H:%M")),
+      paste0("T max\n",   format(dat$datetime_local[i_tp_max], "%H:%M"))
+    ),
+    col  = c("DO (mg/L)","DO (mg/L)","Temp (°C)","Temp (°C)")
+  )
+  
+  ggplot(dat, aes(x = datetime_local)) +
+    # Series O2
+    geom_line(aes(y = DO_mgL, color = "DO (mg/L)"), linewidth = 0.6) +
+    geom_point(aes(y = DO_mgL, color = "DO (mg/L)"), size = 1.2, alpha = 0.7) +
+    # Series Temp re-escaladas
+    geom_line(aes(y = a*Temp_C + b, color = "Temp (°C)"), linewidth = 0.6) +
+    geom_point(aes(y = a*Temp_C + b, color = "Temp (°C)"), size = 1.0, alpha = 0.7) +
+    # Puntos extremos
+    geom_point(data = pts, aes(x = time, y = y_do, color = col), size = 2.0) +
+    ggrepel::geom_label_repel(
+      data = pts,
+      aes(x = time, y = y_do, label = lab, fill = col),
+      color = "white", size = 3, label.size = 0,
+      box.padding = 0.3, point.padding = 0.2, seed = 123,
+      segment.size = 0.3
+    ) +
+    scale_color_manual(
+      name = NULL,
+      values = c("DO (mg/L)" = "navy", "Temp (°C)" = "firebrick")
+    ) +
+    scale_fill_manual(
+      name = NULL,
+      values = c("DO (mg/L)" = "navy", "Temp (°C)" = "firebrick"),
+      guide = "none"
+    ) +
+    scale_x_datetime(date_labels = "%H:%M") +  # solo hora:min
+    scale_y_continuous(
+      name = "Dissolved Oxygen (mg/L)",
+      sec.axis = sec_axis(~ (. - b)/a, name = "Temperature (°C)")
+    ) +
+    labs(title = titulo, x = "Local time (America/Tegucigalpa)") +
+    theme_bw() +
+    theme(
+      plot.title = element_text(hjust = 0, face = "bold"),
+      panel.grid.minor = element_blank(),
+      panel.grid.major.x = element_blank(),
+      axis.title = element_text(size = 11),
+      axis.text  = element_text(size = 9),
+      legend.position = "top",
+      aspect.ratio = 0.8
+    )
+}
+
+# Paneles
+p_cocalito_anno <- dual_panel_annotated(cocalito_win, "Cocalito — DO & Temp")
+p_ensenada_anno <- dual_panel_annotated(ensenada_win, "Ensenada — DO & Temp")
+
+# Combinar A–B siempre visibles
+fig_AB_ext <- plot_grid(
+  p_cocalito_anno, p_ensenada_anno,
+  labels = c("A","B"), label_fontface = "bold",
+  ncol = 2, align = "hv"
+)
+
+print(fig_AB_ext)
+ggsave("Fig_AB_DO_Temp_anotada_refinada.png", fig_AB_ext, width = 11, height = 5.5, dpi = 300)
