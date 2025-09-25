@@ -37,33 +37,30 @@ read_minidot <- function(file){
     )
 }
 
-#   COCALITO  (23y  24-ago 11:10
+# Leer los txt por sitio Cocalito y La Ensenada
 
 coc23 <- read_minidot("2025-08-23 164200Z.txt")
 coc24 <- read_minidot("2025-08-24 164200Z.txt")
-
-
-cocalito_all <- bind_rows(coc23, coc24) %>% arrange(datetime_local)
-
-cocalito_start <- ymd_hm("2025-08-23 11:10", tz = tz_local)
-cocalito_end   <- ymd_hm("2025-08-24 11:10", tz = tz_local)
-
-cocalito_win <- cocalito_all %>%
-  filter(datetime_local >= cocalito_start,
-         datetime_local <= cocalito_end)
-
-# Ensenada 25 y 24
 ens24 <- read_minidot("2025-08-24 164200Z.txt")
 ens25 <- read_minidot("2025-08-25 164200Z.txt")
 
-ensenada_all <- bind_rows(ens24, ens25) %>% arrange(datetime_local)
+#Cocalito
+cocalito_all <- bind_rows(coc24, coc25) |> arrange(datetime_local)
+ensenada_win <- ensenada_all |>
+  filter(
+    datetime_local >= ymd_hm("2025-08-23 11:10", tz = tz_local),
+    datetime_local <= ymd_hm("2025-08-24 11:10", tz = tz_local)
+  ) |>
+  mutate(site = "Cocalito")
 
-ensenada_start <- ymd_hm("2025-08-24 12:40", tz = tz_local)
-ensenada_end   <- ymd_hm("2025-08-25 12:40", tz = tz_local)
-
-ensenada_win <- ensenada_all %>%
-  filter(datetime_local >= ensenada_start,
-         datetime_local <= ensenada_end)
+# Ensenada 
+ensenada_all <- bind_rows(ens24, ens25) |> arrange(datetime_local)
+ensenada_win <- ensenada_all |>
+  filter(
+    datetime_local >= ymd_hm("2025-08-24 12:40", tz = tz_local),
+    datetime_local <= ymd_hm("2025-08-25 12:40", tz = tz_local)
+  ) |>
+  mutate(site = "Ensenada")
 #Graficos
 panel_DO <- function(dat, titulo){
   ggplot(dat, aes(x = datetime_local, y = DO_mgL)) +
